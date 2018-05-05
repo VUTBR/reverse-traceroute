@@ -1,9 +1,8 @@
-import socket
-import re
-from whois import Whois
-from Renderers.hop import Hop
 from base_renderer import BaseRenderer
+from Renderers.hop import Hop
 from reverse_dns import ReverseDNS
+from whois import Whois
+import re
 
 
 class ParisTracerouteRenderer(BaseRenderer):

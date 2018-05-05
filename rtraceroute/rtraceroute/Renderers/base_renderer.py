@@ -21,6 +21,8 @@ class BaseRenderer(object):
             hop_number = hop_line[0].hop_number
             hosts = []
             for hop in hop_line:
+                if ' ' in hop.asn:
+                    hop.asn = hop.asn.replace(' ', ',')
                 hosts.append(
                     '{} {}{} ({}) {} {}'.format(
                         hop.hostname if hop.hostname else '*',

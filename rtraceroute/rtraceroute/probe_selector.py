@@ -6,7 +6,6 @@ from ripe.atlas.cousteau import (
     AtlasCreateRequest,
     AtlasResultsRequest,
     Ping,
-    ProbeRequest
 )
 from time import sleep
 import logging

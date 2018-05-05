@@ -1,8 +1,8 @@
-import socket
-from whois import Whois
-from Renderers.hop import Hop
 from base_renderer import BaseRenderer
+from Renderers.hop import Hop
 from reverse_dns import ReverseDNS
+from whois import Whois
+import socket
 
 
 class TracerouteRenderer(BaseRenderer):
@@ -25,12 +25,11 @@ class TracerouteRenderer(BaseRenderer):
                         except socket.error as e:
                             hostname = ''
 
-                        asn = Whois(ip).get_asn()
-
                         if ip not in [x.ip for x in hop_responses]:
-                            #  rdns = ReverseDNS(ip_address=ip)
-                            #  rdns.run()
-                            hop_responses.append(Hop(hop_number, ip, hostname, asn, response['rtt'], packet_numbers=[response_position]))
+                            asn = Whois(ip).get_asn()
+                            rdns = ReverseDNS(ip_address=ip)
+                            rdns.run()
+                            hop_responses.append(Hop(hop_number, ip, hostname, asn, response['rtt'], domain=rdns.domain, packet_numbers=[response_position]))
                     else:
                         hop = Hop(hop_number, '*', asn='AS???', packet_numbers=[response_position])
                         if not hop in hop_responses:

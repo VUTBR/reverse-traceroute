@@ -1,11 +1,10 @@
 from config import CHECKIP_SERVICE
-from config import GOOGLE_DNS
 from config import DNS_PORT
+from config import GOOGLE_DNS
 from config import LOCALHOST
-
-import urllib
-import socket
 import re
+import socket
+import urllib
 
 
 class IP(object):

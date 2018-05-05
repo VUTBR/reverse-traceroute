@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 from config import *
+from graph_visualizer import GraphVisualizer
 from ip import IP
 from mtr import Mtr
 from paris_traceroute import ParisTraceroute
@@ -21,7 +22,19 @@ import click
 import logging
 import sys
 
+
 logging.getLogger().setLevel(logging.INFO)
+
+
+class ConsoleColors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 
 class RIPEException(Exception):
@@ -157,6 +170,9 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
         forward_traceroute = ParisTraceroute(distant_host, protocol=protocol)
         forward_traceroute.start()
 
+        forward_icmp_traceroute = ParisTraceroute(distant_host, protocol='ICMP')
+        forward_icmp_traceroute.start()
+
         # rt = ReverseTraceroute(
         #     distant_host=distant_host,
         #     local_host=local_host,
@@ -168,6 +184,7 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
         # results = rt.run()
 
         forward_traceroute.join()
+        forward_icmp_traceroute.join()
 
         if forward_traceroute.errors:
             if verbose:
@@ -183,7 +200,17 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
             MtrRenderer.render(parsed_ft_results)
         else:
             print "Forward path:"
-            parsed_ft_results = ParisTracerouteRenderer.parse(forward_traceroute.output)
+
+            parsed_ft_results = ParisTracerouteRenderer.parse(
+                forward_traceroute.output)
+            parsed_ft_icmp_results = ParisTracerouteRenderer.parse(
+                forward_icmp_traceroute.output)
+
+            #  if end of paths contains unknown hosts (***), try
+            #  to complete the path to the destination using icmp
+            parsed_ft_results = PathComparator.merge_paths(
+                parsed_ft_results, parsed_ft_icmp_results)
+
             ParisTracerouteRenderer.render(parsed_ft_results)
 
         kwargs = {
@@ -194,25 +221,28 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
 
         print "Return path:"
         parsed_rt_results = TracerouteRenderer.parse(results)
-        return_path = TracerouteRenderer.render(parsed_rt_results)
-        print return_path
+        TracerouteRenderer.render(parsed_rt_results)
 
         path_comparator = PathComparator(parsed_ft_results, parsed_rt_results)
         path_comparator.print_asn_paths()
 
-
-        import IPython;IPython.embed()
-        p_count = path_comparator.find_probes_count(parsed_ft_results)
-
-
-
-        return
-        symmetrical = path_comparator.compare_paths_asns()
-
-        if symmetrical:
-            print "ASN Paths appear to be symmetrical"
+        asn_symmetrical = path_comparator.compare_paths_by_asns()
+        if asn_symmetrical:
+            print('\n{}ASN Paths appear to be symmetrical{}'.format(
+                ConsoleColors.OKGREEN,
+                ConsoleColors.ENDC
+            ))
         else:
-            print "ASN Paths appear to be asymmetrical"
+            print('\n{}ASN Paths appear NOT to be symmetrical{}'.format(
+                ConsoleColors.WARNING,
+                ConsoleColors.ENDC
+            ))
+
+        ft_individual_paths = path_comparator.extract_individual_paths(parsed_ft_results)
+        gv = GraphVisualizer(ft_individual_paths)
+        gv.create_nxgraph()
+        gv.highlight_return_path(return_path=parsed_rt_results)
+        gv.save(name=distant_host)
 
     else:
         sys.exit(1)

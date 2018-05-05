@@ -1,5 +1,3 @@
-import sys
-
 from ripe.atlas.cousteau import AtlasStream
 import logging
 

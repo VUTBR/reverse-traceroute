@@ -1,6 +1,6 @@
-from operator import itemgetter
 from itertools import groupby
 from itertools import izip_longest
+from operator import itemgetter
 
 
 class PathComparator(object):
@@ -14,7 +14,6 @@ class PathComparator(object):
     def compare_paths_by_asns(self):
         a = PathComparator.group_asns(self.forward_hop_lines)
         b = PathComparator.group_asns(self.reverse_hop_lines)
-
         if len(a) > len(b):
             a, b = b, a  # a is shorter or equal to b
 
@@ -25,7 +24,14 @@ class PathComparator(object):
         same_from = pos_a
 
         while pos_a < len(a):
-            if a[pos_a] == b[pos_b]:
+            if ' ' in a[pos_a]:
+                asns = a[pos_a].split(' ')
+                for asn in asns:
+                    if asn in b[pos_b]:
+                        pos_a += 1
+                        pos_b += 1
+                        continue
+            elif a[pos_a] == b[pos_b]:
                 pos_a += 1
                 pos_b += 1
             else:
@@ -57,44 +63,25 @@ class PathComparator(object):
                 return False  # paths meet too late
 
             while pos_a < len(a):
-                if isinstance(a[pos_a], list):
-                    found = False
-                    for hostname in a[pos_a]:
-                        if hostname in b[pos_b]:
-                            found = True
-                            break
-                    if not found:
-                        return False
-                    pos_a += 1
-                    pos_b += 1
-
-                elif isinstance(b[pos_b], list):
-                    found = False
-                    for hostname in b[pos_b]:
-                        if hostname in a[pos_a]:
-                            found = True
-                            break
-                    if not found:
-                        return False
-                    pos_a += 1
-                    pos_b += 1
-
-                elif a[pos_a] == b[pos_b]:
-                    pos_a += 1
-                    pos_b += 1
-                else:
+                found = False
+                for hostname in a[pos_a]:
+                    if hostname in b[pos_b]:
+                        found = True
+                        break
+                if not found:
                     return False
-        return True  # paths seem the same
+                pos_a += 1
+                pos_b += 1
+            return True  # paths seem the same
+        else:
+            return False
 
     @staticmethod
     def extract_hostnames(hop_lines):
         hostnames = []
 
         for hop_line in hop_lines:
-            if len(hop_line) > 1:
-                line_hostnames = [x.hostname for x in hop_lines]
-            else:
-                line_hostnames = hop_line[0].hostname
+            line_hostnames = [x.hostname for x in hop_line]
             hostnames.append(line_hostnames)
         return hostnames
 
@@ -136,11 +123,15 @@ class PathComparator(object):
 
     @staticmethod
     def group_asns(hop_lines):
-        return map(itemgetter(0), groupby(PathComparator.extract_asns(hop_lines)))
+        return map(itemgetter(0),
+                   groupby(PathComparator.extract_asns(hop_lines)))
 
     def print_asn_paths(self):
-        print "{}\t\t\t{}".format('forward path', 'reverse path')
-        for asn_a, asn_b in izip_longest(self.forward_asns, self.reverse_asns, fillvalue=''):
+        print("ASN paths:")
+        print("Columns are in direction from destination host to local host")
+        print "{}\t\t{}".format('forward path', 'reverse path')
+        for asn_a, asn_b in izip_longest(self.forward_asns, self.reverse_asns,
+                                         fillvalue=''):
             if isinstance(asn_a, list):
                 asn_a = ', '.join(asn_a)
             if isinstance(asn_b, list):
@@ -148,22 +139,25 @@ class PathComparator(object):
             print "{}\t\t\t{}".format(asn_a, asn_b)
 
     def extract_individual_paths(self, hop_lines):
-        probe_count = self.find_probes_count(hop_lines)
+        probe_count = self.find_probes_packets_count(hop_lines)
         paths = []
 
-        for probe_number in range(probe_count):
+        for probe_number in range(1, probe_count):
             path = []
             for hop_line in hop_lines:
+                if len(hop_line) == 1:
+                    path.append(hop_line[0])
+                    continue
                 for hop in hop_line:
-                    if probe_number in hop.probe_numbers:
+                    if probe_number in hop.packet_numbers:
                         path.append(hop)
                         break
-            if not self.path_in_paths(path, paths):
-                paths.append(path)
+            #if not self.path_in_paths(path, paths):
+            paths.append(path)
         return paths
 
     @staticmethod
-    def find_probes_count(hop_lines):
+    def find_probes_packets_count(hop_lines):
         maxnum = 0
         for hop_line in hop_lines:
             probes = [x.packet_numbers for x in hop_line if
@@ -186,3 +180,29 @@ class PathComparator(object):
                 if hop_number == len(path):
                     found = True
         return found
+
+    @staticmethod
+    def hop_in_hop_lines(hop, hop_lines):
+        line = 0
+        for hop_line in hop_lines:
+            for a_hop in hop_line:
+                if a_hop.ip == hop.ip or a_hop.hostname == hop.hostname:
+                    return line
+            line += 1
+        return -1  # not found
+
+    @staticmethod
+    def merge_paths(parsed_ft_results, parsed_ft_icmp_results):
+        parsed_ft_icmp_results_path = [x[0] for x in parsed_ft_icmp_results]
+        pos_found = -1
+        for pos, hop in reversed(
+                list(enumerate(parsed_ft_icmp_results_path))):
+            line = PathComparator.hop_in_hop_lines(hop, parsed_ft_results)
+            if line != -1:
+                pos_found = pos
+                break
+
+        if pos_found != -1:
+            parsed_ft_results = parsed_ft_results[:line]
+            parsed_ft_results.extend(parsed_ft_icmp_results[pos_found + 1:])
+        return parsed_ft_results
