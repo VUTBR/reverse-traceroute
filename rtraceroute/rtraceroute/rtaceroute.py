@@ -173,15 +173,15 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
         forward_icmp_traceroute = ParisTraceroute(distant_host, protocol='ICMP')
         forward_icmp_traceroute.start()
 
-        # rt = ReverseTraceroute(
-        #     distant_host=distant_host,
-        #     local_host=local_host,
-        #     probe_count=probe_count,
-        #     protocol=protocol,
-        #     description=description,
-        #     verbose=verbose
-        # )
-        # results = rt.run()
+        rt = ReverseTraceroute(
+            distant_host=distant_host,
+            local_host=local_host,
+            probe_count=probe_count,
+            protocol=protocol,
+            description=description,
+            verbose=verbose
+        )
+        results = rt.run()
 
         forward_traceroute.join()
         forward_icmp_traceroute.join()
@@ -206,18 +206,12 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
             parsed_ft_icmp_results = ParisTracerouteRenderer.parse(
                 forward_icmp_traceroute.output)
 
-            #  if end of paths contains unknown hosts (***), try
+            #  if end of paths contains unknown host (*), try
             #  to complete the path to the destination using icmp
             parsed_ft_results = PathComparator.merge_paths(
                 parsed_ft_results, parsed_ft_icmp_results)
 
             ParisTracerouteRenderer.render(parsed_ft_results)
-
-        kwargs = {
-            "msm_id": 12237628
-        }
-
-        is_success, results = AtlasResultsRequest(**kwargs).create()
 
         print "Return path:"
         parsed_rt_results = TracerouteRenderer.parse(results)

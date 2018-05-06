@@ -23,7 +23,8 @@ class PathComparator(object):
 
         same_from = pos_a
 
-        while pos_a < len(a):
+        while pos_a < len(a) and pos_b < len(b):
+            print "pos_a = {}".format(pos_a)
             if ' ' in a[pos_a]:
                 asns = a[pos_a].split(' ')
                 for asn in asns:
@@ -31,6 +32,7 @@ class PathComparator(object):
                         pos_a += 1
                         pos_b += 1
                         continue
+                return False
             elif a[pos_a] == b[pos_b]:
                 pos_a += 1
                 pos_b += 1

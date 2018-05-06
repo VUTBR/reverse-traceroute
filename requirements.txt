@@ -2,3 +2,6 @@ ripe.atlas.cousteau
 shell
 click
 ipwhois
+pydot
+graphviz
+networkx
