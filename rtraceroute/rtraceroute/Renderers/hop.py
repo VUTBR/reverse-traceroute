@@ -1,7 +1,7 @@
 
 
 class Hop(object):
-    def __init__(self, hop_number, ip="", hostname="", asn="", rtt="", domain="", packet_numbers=None):
+    def __init__(self, hop_number, ip="", hostname="", asn="", rtt="", domain="", packet_numbers=list()):
         self.hop_number = hop_number
         self.ip = ip
         self.hostname = hostname

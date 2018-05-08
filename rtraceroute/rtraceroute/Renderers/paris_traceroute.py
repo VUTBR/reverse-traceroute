@@ -25,7 +25,7 @@ class ParisTracerouteRenderer(BaseRenderer):
             re_packet_numbers = re.compile(r':[\d+,]+')
 
             if not current_line:
-                new_hop = Hop(hop_number, hostname='***', asn='AS???', packet_numbers=[])
+                new_hop = Hop(hop_number, hostname='*', asn='AS???', packet_numbers=[])
                 hop_line.append(new_hop)
                 hop_lines.append(hop_line)
                 continue

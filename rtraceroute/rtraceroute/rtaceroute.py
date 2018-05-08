@@ -50,7 +50,7 @@ class ReverseTraceroute(object):
         self.description = description
         self.verbose = verbose
         self.probe_count = probe_count
-        whois = Whois(distant_host)  # TODO: this can f*ck up, do somewhere else
+        whois = Whois(distant_host)
         ps = ProbeSelector(
             asn=whois.get_asn(),
             country_code=whois.get_country(),
@@ -173,15 +173,15 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
         forward_icmp_traceroute = ParisTraceroute(distant_host, protocol='ICMP')
         forward_icmp_traceroute.start()
 
-        rt = ReverseTraceroute(
-            distant_host=distant_host,
-            local_host=local_host,
-            probe_count=probe_count,
-            protocol=protocol,
-            description=description,
-            verbose=verbose
-        )
-        results = rt.run()
+        # rt = ReverseTraceroute(
+        #     distant_host=distant_host,
+        #     local_host=local_host,
+        #     probe_count=probe_count,
+        #     protocol=protocol,
+        #     description=description,
+        #     verbose=verbose
+        # )
+        # results = rt.run()
 
         forward_traceroute.join()
         forward_icmp_traceroute.join()
@@ -192,14 +192,14 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
                     'Don\'t have root proviledges for paris-traceroute, '
                     'using mtr instead.'
                 )
-            print "Forward path:"
+            print("Forward path:")
             forward_traceroute = Mtr(distant_host)
             forward_traceroute.start()
             forward_traceroute.join()
             parsed_ft_results = MtrRenderer.parse(forward_traceroute.output)
             MtrRenderer.render(parsed_ft_results)
         else:
-            print "Forward path:"
+            print("Forward path:")
 
             parsed_ft_results = ParisTracerouteRenderer.parse(
                 forward_traceroute.output)
@@ -213,7 +213,12 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
 
             ParisTracerouteRenderer.render(parsed_ft_results)
 
-        print "Return path:"
+        kwargs = {
+            "msm_id": 12539304,
+        }
+        is_success, results = AtlasResultsRequest(**kwargs).create()
+
+        print("Return path:")
         parsed_rt_results = TracerouteRenderer.parse(results)
         TracerouteRenderer.render(parsed_rt_results)
 
@@ -222,17 +227,31 @@ def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, des
 
         asn_symmetrical = path_comparator.compare_paths_by_asns()
         if asn_symmetrical:
-            print('\n{}ASN Paths appear to be symmetrical{}'.format(
+            print('\n{}ASN paths appear to be symmetrical.{}'.format(
                 ConsoleColors.OKGREEN,
                 ConsoleColors.ENDC
             ))
         else:
-            print('\n{}ASN Paths appear NOT to be symmetrical{}'.format(
+            print('\n{}ASN paths appear NOT to be symmetrical.{}'.format(
                 ConsoleColors.WARNING,
                 ConsoleColors.ENDC
             ))
 
-        ft_individual_paths = path_comparator.extract_individual_paths(parsed_ft_results)
+        path_comparator.print_hostname_paths()
+        hostname_symmetrical = path_comparator.compare_paths_by_hostnames()
+        if hostname_symmetrical:
+            print('\n{}Hostname paths appear to be symmetrical.{}'.format(
+                ConsoleColors.OKGREEN,
+                ConsoleColors.ENDC
+            ))
+        else:
+            print('\n{}Hostname paths appear NOT to be symmetrical.{}'.format(
+                ConsoleColors.WARNING,
+                ConsoleColors.ENDC
+            ))
+
+        ft_individual_paths = path_comparator.extract_individual_paths(
+            parsed_ft_results)
         gv = GraphVisualizer(ft_individual_paths)
         gv.create_nxgraph()
         gv.highlight_return_path(return_path=parsed_rt_results)

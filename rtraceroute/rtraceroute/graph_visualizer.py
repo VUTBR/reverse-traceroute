@@ -1,6 +1,7 @@
 from datetime import datetime
 from networkx import DiGraph
 from networkx.drawing.nx_pydot import write_dot
+import logging
 import os
 
 
@@ -52,11 +53,21 @@ class GraphVisualizer(object):
                 break
 
     def save(self, name='graph'):
-        write_dot(self.nxgraph, 'nx.dot')
+        """
+        Creates pdf file with path graph.
+
+        :param name: Name of created graph
+        :return:
+        """
         time = datetime.now()
-        os.system('dot -Tpdf nx.dot -o{}.pdf'.format(
+        try:
+            write_dot(self.nxgraph, 'nx.tmp.dot')
+            os.system('dot -Tpdf nx.tmp.dot -o{}.pdf'.format(
             name + '_{}:{}:{}'.format(
                 time.hour,
                 time.minute,
                 time.second)))
-        #os.remove('nx.dot')
+            #os.remove('nx.tmp.dot')
+        except IOError as e:
+            logging.error('Could not write temporary dot file '
+                          'nx.tmp.dot')

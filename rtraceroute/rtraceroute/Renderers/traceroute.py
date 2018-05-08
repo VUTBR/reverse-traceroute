@@ -22,8 +22,8 @@ class TracerouteRenderer(BaseRenderer):
                         ip = response['from']
                         try:
                             hostname = socket.gethostbyaddr(ip)[0]
-                        except socket.error as e:
-                            hostname = ''
+                        except socket.error:
+                            hostname = ip
 
                         if ip not in [x.ip for x in hop_responses]:
                             asn = Whois(ip).get_asn()
@@ -31,10 +31,9 @@ class TracerouteRenderer(BaseRenderer):
                             rdns.run()
                             hop_responses.append(Hop(hop_number, ip, hostname, asn, response['rtt'], domain=rdns.domain, packet_numbers=[response_position]))
                     else:
-                        hop = Hop(hop_number, '*', asn='AS???', packet_numbers=[response_position])
-                        if not hop in hop_responses:
-                            hop_responses.append(hop)
-
+                        new_hop = Hop(hop_number, ip='*', hostname='*', asn='AS???', packet_numbers=[response_position])
+                        if not new_hop in hop_responses:
+                            hop_responses.append(new_hop)
                     response_position += 1
 
                 hop_lines.append(hop_responses)

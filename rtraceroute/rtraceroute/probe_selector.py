@@ -51,6 +51,7 @@ class ProbeSelector(object):
         is_success, response = atlas_request.create()
         if not is_success:
             logging.warn(response)
+            return []  # return empty list representing no results
 
         msm_id = response['measurements'][0]
         return self.wait_for_all_results(msm_id, source.requested)
@@ -60,14 +61,16 @@ class ProbeSelector(object):
         source = self.get_asn_probe(self.asn)
         results = self.ping(source)
 
-        #  try to get responfing probe from neighbouring ASN
+        #  try to get responsing probe from neighbouring ASN
         if len(results) == 0:
-            neighbours = AsnNeighbours(self.asn).run()
-            for asn in neighbours.neighbours:
-                source = self.get_asn_probe(asn)
-                results = self.ping(source)
-                if len(results) != 0:
-                    return results
+            asn_neighbours = AsnNeighbours(self.asn)
+            asn_neighbours.run()
+            if asn_neighbours.neighbours is not None:
+                for asn in asn_neighbours.neighbours:
+                    source = self.get_asn_probe(asn)
+                    results = self.ping(source)
+                    if len(results) != 0:
+                        return results
 
         #  if everything above fails, take few random probes from target country
         #  and choose one with the best rtt
@@ -78,6 +81,16 @@ class ProbeSelector(object):
         return results
 
     def wait_for_all_results(self, msm_id, probe_count, limit=900):
+        """
+        Waits for all Atlas probes to report collected data,
+        when number of collected measurements equals number of Atlas probes
+        required, results are returned
+
+        :param msm_id: Measuremetn ID
+        :param probe_count: number of probes required to create measurement
+        :param limit: timeout
+        :return: list of measurement results
+        """
         attempts = 0
         old_res = []
         res = []
@@ -93,23 +106,10 @@ class ProbeSelector(object):
             sleep(1)
         return res
 
-    def get_result(self, msm_id):
+    @staticmethod
+    def get_result(msm_id):
         kwargs = {
             "msm_id": msm_id,
         }
         is_success, results = AtlasResultsRequest(**kwargs).create()
         return results
-
-
-if __name__ == "__main__":
-    selector = ProbeSelector(asn=24806, country_code='CZ', target='195.181.216.169')
-    resultss = selector.get_near_probes_results()
-    from ripe.atlas.sagan import PingResult
-    print resultss
-    result = PingResult(resultss[0])
-    from ripe.atlas.tools.renderers import ping as ToolsPing
-    pingRenderer = ToolsPing.Renderer()
-
-
-
-

@@ -20,5 +20,5 @@ class AsnNeighbours(object):
         return neighbours
 
     def run(self):
-        response = requests.get(self.request_url + self.asn)
+        response = requests.get(self.request_url + str(self.asn))
         self.neighbours = AsnNeighbours.parse(response.json())
