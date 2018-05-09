@@ -51,7 +51,7 @@ class PathComparator(object):
         b = self.extract_hostnames(self.reverse_path)
 
         if len(a) > len(b):
-            a, b = b, a  # a is shorter or equal to b
+            a, b = b, a  # a is set to be shorter or equal to b
 
         pos_a = None
         pos_b = None
@@ -153,7 +153,7 @@ class PathComparator(object):
 
         print("Hostname paths:")
         print("Columns are in direction from destination host to source host.")
-        print("{}{}{}".format('forward path', ' ' * 38 ,'reverse path'))
+        print("{}{}{}".format('forward path', ' ' * 39, 'reverse path'))
 
         for f_hostname, r_hostname in izip_longest(
                 forward_hostnames,
@@ -161,7 +161,7 @@ class PathComparator(object):
                 fillvalue=''):
             print("{}{}{}".format(
                 ','.join(f_hostname),
-                ' ' * (50 - len(','.join(f_hostname))),
+                ' ' * (1 + (50 - len(','.join(f_hostname)))), # at least 1 space
                 ','.join(r_hostname)))
 
     def extract_individual_paths(self, path):
