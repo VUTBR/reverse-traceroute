@@ -15,10 +15,13 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        'Click',
+        'click',
         'ripe.atlas.cousteau',
-        'ripe.atlas.sagan',
-        'ripe.atlas.tools'
+        'pydot',
+        'graphviz',
+        'networkx',
+        'ipwhois',
+        'shell',
     ],
     entry_points='''
         [console_scripts]
