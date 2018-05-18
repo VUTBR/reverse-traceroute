@@ -24,7 +24,7 @@ class Whois(object):
     def get_asn(self):
         if self.result is not None and self.result['asn'] != 'NA':
             if 'AS' not in self.result['asn']:
-                return 'AS'+ self.result['asn']
+                return 'AS' + self.result['asn']
             else:
                 return self.result['asn']
         return 'AS???'

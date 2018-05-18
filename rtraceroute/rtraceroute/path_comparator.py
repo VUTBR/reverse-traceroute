@@ -16,7 +16,8 @@ class PathComparator(object):
         b = PathComparator.group_asns(self.reverse_path)
 
         first_match_a, first_match_b = self.find_first_matching_asns(
-            self.forward_path, self.reverse_path)
+            self.get_asns(self.forward_path),
+            self.get_asns(self.reverse_path))
 
         # check that first matching asn is within first third of both paths
         if first_match_a > len(self.forward_path)/4 or first_match_b > len(self.reverse_path)/4:
@@ -82,7 +83,6 @@ class PathComparator(object):
     @staticmethod
     def extract_hostnames(path):
         hostnames = []
-
         for hop_line in path:
             line_hostnames = [x.hostname for x in hop_line]
             hostnames.append(line_hostnames)
@@ -138,39 +138,52 @@ class PathComparator(object):
     def print_asn_paths(self):
         print("ASN paths:")
         print("Columns are in direction from destination host to source host.")
-        print("{}\t\t{}".format('forward path', 'reverse path'))
+        print("{}{}{}".format('forward path', ' ' * 27, 'reverse path'))
+        a_hop_number = len(self.forward_asns)
+        b_hop_number = 1
+
         for asn_a, asn_b in izip_longest(self.forward_asns, self.reverse_asns,
                                          fillvalue=''):
             if isinstance(asn_a, list):
                 asn_a = ', '.join(asn_a)
             if isinstance(asn_b, list):
                 asn_b = ', '.join(asn_b)
-            print "{}\t\t\t{}".format(asn_a, asn_b)
+            print "{}   {}{}{}   {}".format(
+                a_hop_number if a_hop_number > 0 else '',
+                asn_a,
+                ' ' * (36 - len(asn_a) - len(str(a_hop_number))),
+                b_hop_number if int(b_hop_number) <= len(self.reverse_asns) else ' ',
+                asn_b)
+            a_hop_number -= 1
+            b_hop_number += 1
 
     def print_hostname_paths(self):
-        forward_hostnames = self.get_hostnames(self.forward_path)
-        reverse_hostnames = self.get_hostnames(self.reverse_path)
-
         print("Hostname paths:")
         print("Columns are in direction from destination host to source host.")
-        print("{}{}{}".format('forward path', ' ' * 39, 'reverse path'))
 
-        for f_hostname, r_hostname in izip_longest(
-                forward_hostnames,
-                reverse_hostnames,
-                fillvalue=''):
-            print("{}{}{}".format(
-                ','.join(f_hostname),
-                ' ' * (1 + (50 - len(','.join(f_hostname)))), # at least 1 space
-                ','.join(r_hostname)))
+        print('Forward path')
+        for hops in self.forward_path:
+            if len(hops) > 0:
+                print("{}   {}".format(
+                    hops[0].hop_number,
+                    ', '.join([x.hostname for x in hops])))
+        print('\n')
+        print('Return path')
+        for hops in self.reverse_path:
+            if len(hops) > 0:
+                print("{}   {}".format(
+                    hops[0].hop_number,
+                    ', '.join([x.hostname for x in hops])))
 
-    def extract_individual_paths(self, path):
-        probe_count = self.find_probes_packets_count(path)
+    def extract_individual_paths(self, hop_lines):
+        probe_count = self.find_probes_packets_count(hop_lines)
+        if probe_count == 1:  # no load-balancing occurred, 1 unique path only
+            return [[hop_line[0] for hop_line in hop_lines]]
+
         paths = []
-
         for probe_number in range(1, probe_count):
             path = []
-            for hop_line in path:
+            for hop_line in hop_lines:
                 if len(hop_line) == 1:
                     path.append(hop_line[0])
                     continue
@@ -178,7 +191,6 @@ class PathComparator(object):
                     if probe_number in hop.packet_numbers:
                         path.append(hop)
                         break
-            #if not self.path_in_paths(path, paths):
             paths.append(path)
         return paths
 
@@ -238,5 +250,5 @@ class PathComparator(object):
 
         if pos_found != -1:
             path = path[:line]
-            path.extend(other_path[pos_found + 1:])
+            path.extend(other_path[pos_found:])
         return path

@@ -10,6 +10,8 @@ SCRIPT = (
 )
 
 setup(
+    author='Radim Hrazdil',
+    author_email='hr@zdilradim.eu',
     name='rtraceroute',
     version='0.1',
     packages=find_packages(),

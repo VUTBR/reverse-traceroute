@@ -1,5 +1,5 @@
 from config import ATLAS_API_KEY
-from datetime import datetime
+from datetime import datetime, timedelta
 from asn_neighbours import AsnNeighbours
 from ripe.atlas.cousteau import (
     AtlasSource,
@@ -10,6 +10,8 @@ from ripe.atlas.cousteau import (
 from time import sleep
 import logging
 
+PROBE_IN_ASN_NOT_FOUND_WARNING = ('Selecting probe based on RTT and '
+                                  'target country. Results may be inaccurate.')
 
 class ProbeSelector(object):
 
@@ -30,7 +32,7 @@ class ProbeSelector(object):
         return AtlasSource(
             type='country',
             value=self.country_code,
-            requested=5
+            requested=10
         )
 
     def ping(self, source):
@@ -40,8 +42,9 @@ class ProbeSelector(object):
             description="RTT measurement"
         )
 
+        # add 1 second to make sure time in request is not in the past
         atlas_request = AtlasCreateRequest(
-            start_time=datetime.utcnow(),
+            start_time=datetime.utcnow() + timedelta(seconds=1),
             key=ATLAS_API_KEY,
             measurements=[ping],
             sources=[source],
@@ -50,31 +53,38 @@ class ProbeSelector(object):
 
         is_success, response = atlas_request.create()
         if not is_success:
-            logging.warn(response)
+            logging.warning(response)
             return []  # return empty list representing no results
 
         msm_id = response['measurements'][0]
         return self.wait_for_all_results(msm_id, source.requested)
 
     def get_near_probes_results(self):
-        #  try to get responding probe from target ASN
-        source = self.get_asn_probe(self.asn)
-        results = self.ping(source)
+        if self.asn != 'AS???':
+            #  try to get responding probe from target ASN
+            source = self.get_asn_probe(self.asn)
+            results = self.ping(source)
 
-        #  try to get responsing probe from neighbouring ASN
-        if len(results) == 0:
-            asn_neighbours = AsnNeighbours(self.asn)
-            asn_neighbours.run()
-            if asn_neighbours.neighbours is not None:
-                for asn in asn_neighbours.neighbours:
-                    source = self.get_asn_probe(asn)
-                    results = self.ping(source)
-                    if len(results) != 0:
-                        return results
+            #  try to get responsing probe from neighbouring ASN
+            if len(results) == 0:
+                asn_neighbours = AsnNeighbours(self.asn)
+                asn_neighbours.run()
+                if asn_neighbours.neighbours is not None:
+                    for asn in asn_neighbours.neighbours:
+                        source = self.get_asn_probe(asn)
+                        results = self.ping(source)
+                        if len(results) != 0:
+                            return results
 
-        #  if everything above fails, take few random probes from target country
-        #  and choose one with the best rtt
-        if len(results) == 0:
+            #  if everything above fails, take a few random probes
+            #  from target country and choose one with the best rtt
+            if len(results) == 0:
+                logging.warning(PROBE_IN_ASN_NOT_FOUND_WARNING)
+                source = self.get_local_area_probes()
+                results = self.ping(source)
+                results = sorted(results, key=lambda x: x['avg'])[:1]
+        else:
+            logging.WARN(PROBE_IN_ASN_NOT_FOUND_WARNING)
             source = self.get_local_area_probes()
             results = self.ping(source)
             results = sorted(results, key=lambda x: x['avg'])[:1]

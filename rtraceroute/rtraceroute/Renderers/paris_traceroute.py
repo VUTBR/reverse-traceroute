@@ -1,4 +1,5 @@
 from base_renderer import BaseRenderer
+from prefix_overview import PrefixOverview
 from Renderers.hop import Hop
 from reverse_dns import ReverseDNS
 from whois import Whois
@@ -59,9 +60,14 @@ class ParisTracerouteRenderer(BaseRenderer):
                 rdns = ReverseDNS(ip_address=ip)
                 rdns.run()
 
-                new_hop = Hop(hop_number, ip, hostname, asn, domain=rdns.domain, packet_numbers=packet_numbers)
+                domain = rdns.domain
+                if domain is None:
+                    prefix = PrefixOverview(ip_address=ip)
+                    prefix.run()
+                    domain = prefix.prefix
+
+                new_hop = Hop(hop_number, ip, hostname, asn, domain=domain, packet_numbers=packet_numbers)
                 hop_line.append(new_hop)
 
             hop_lines.append(hop_line)
-
         return hop_lines

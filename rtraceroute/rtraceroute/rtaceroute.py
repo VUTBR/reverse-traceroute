@@ -19,8 +19,8 @@ from ripe.atlas.cousteau import (
 from time import sleep
 from whois import Whois
 import click
+from datetime import datetime, timedelta
 import logging
-import sys
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -58,6 +58,7 @@ class ReverseTraceroute(object):
             probe_count=probe_count
         )
         self.probe_ids = [str(x['prb_id']) for x in ps.get_near_probes_results()]
+        self.msm_id = None  # set when msm is created
 
     def create_measurement(self):
         traceroute = Traceroute(
@@ -65,9 +66,9 @@ class ReverseTraceroute(object):
             target=self.local_host,
             protocol=self.protocol.upper(),
             description=self.description,
-            paris=16,
+            paris=32,
             timeout=4000,
-            packets=4
+            packets=4,
         )
 
         source = AtlasSource(
@@ -76,11 +77,13 @@ class ReverseTraceroute(object):
             requested=len(self.probe_ids)
         )
 
+        # add 1 second to ensure starttime in the request is not in the past
         atlas_request = AtlasCreateRequest(
             key=ATLAS_API_KEY,
             measurements=[traceroute],
             sources=[source],
-            is_oneoff=True
+            is_oneoff=True,
+            start_time=datetime.utcnow() + timedelta(seconds=1)
         )
         return atlas_request.create()
 
@@ -114,19 +117,21 @@ class ReverseTraceroute(object):
         if self.verbose:
             logging.info('Waiting for results.')
         msm = response["measurements"][0]
+        self.msm_id = msm
+
         results = self.wait_for_all_results(msm_id=msm, probe_count=self.probe_count)
         return results
 
 
+#                  #
+#       MAIN       #
+#                  #
 @click.command()
 @click.option(
     "--local-host", help="Host the RIPE traceroute is targeted to, defaults to this machine's address", required=False
 )
 @click.option(
     "--protocol", help="Protocol to use - ICMP, UDP, TCP, defaults to ICMP", required=False, default='ICMP'
-)
-@click.option(
-    "--distant-hosts-file", help="Run traceroute from all hosts in given file towards local-host", required=False,
 )
 @click.option(
     "--probe-count", help="Number of RIPE probes to request", required=False, default=1
@@ -138,128 +143,110 @@ class ReverseTraceroute(object):
     "-v", "--verbose", help="verbose output", count=True
 )
 @click.argument("distant-host")
-def run(distant_host, local_host, protocol, distant_hosts_file, probe_count, description, verbose):
-    if distant_hosts_file is not None:
-        try:
-            with open(distant_hosts_file, 'r') as ipfile:
-                iplist = [x.rstrip() for x in ipfile.readlines()]
-                for host in iplist:
-                    # mtr = Mtr(distant_host=host)
-                    # forward_path = mtr.create_measurement()
-                    # rt = ReverseTraceroute(
-                    #     distant_host=distant_host,
-                    #     local_host=local_host,
-                    #     probe_count=probe_count,
-                    #     protocol=protocol,
-                    #     description=description,
-                    #     verbose=verbose
-                    # )
-                    # results = rt.run()
-                    #
-                    # tr = TracerouteRenderer()
-                    # reverse_path = tr.render(results)
-                    pass
-        except IOError as error:
-            logging.error(error.message)
-            sys.exit(1)
-    elif distant_host is not None:
-        if verbose:
-            logging.info(
-                'running Paris-traceroute towards {}.'.format(distant_host)
-            )
-        forward_traceroute = ParisTraceroute(distant_host, protocol=protocol)
-        forward_traceroute.start()
+def run(distant_host, local_host, protocol, probe_count, description, verbose):
 
+    if verbose:
+        logging.info(
+            'running Paris-traceroute towards {}.'.format(distant_host)
+        )
+        logging.info(
+            'Inferred local IP: {}.'.format(IP().ip)
+        )
+
+    forward_traceroute = ParisTraceroute(distant_host, protocol=protocol)
+    forward_traceroute.start()
+
+    if protocol.lower() != 'icmp':
         forward_icmp_traceroute = ParisTraceroute(distant_host, protocol='ICMP')
         forward_icmp_traceroute.start()
 
-        # rt = ReverseTraceroute(
-        #     distant_host=distant_host,
-        #     local_host=local_host,
-        #     probe_count=probe_count,
-        #     protocol=protocol,
-        #     description=description,
-        #     verbose=verbose
-        # )
-        # results = rt.run()
+    rt = ReverseTraceroute(
+        distant_host=distant_host,
+        local_host=local_host,
+        probe_count=probe_count,
+        protocol=protocol,
+        description=description,
+        verbose=verbose
+    )
+    results = rt.run()
 
-        forward_traceroute.join()
+    forward_traceroute.join()
+
+    if protocol.lower() != 'icmp':
         forward_icmp_traceroute.join()
 
-        if forward_traceroute.errors:
-            if verbose:
-                logging.info(
-                    'Don\'t have root proviledges for paris-traceroute, '
-                    'using mtr instead.'
-                )
-            print("Forward path:")
-            forward_traceroute = Mtr(distant_host)
-            forward_traceroute.start()
-            forward_traceroute.join()
-            parsed_ft_results = MtrRenderer.parse(forward_traceroute.output)
-            MtrRenderer.render(parsed_ft_results)
-        else:
-            print("Forward path:")
-
-            parsed_ft_results = ParisTracerouteRenderer.parse(
-                forward_traceroute.output)
+    if forward_traceroute.errors:
+        if verbose:
+            logging.info(
+                'Don\'t have root proviledges for paris-traceroute, '
+                'using mtr instead. Consider running with sudo.'
+            )
+        print("Forward path:")
+        forward_traceroute = Mtr(distant_host)
+        forward_traceroute.start()
+        forward_traceroute.join()
+        parsed_ft_results = MtrRenderer.parse(forward_traceroute.output)
+        MtrRenderer.render(parsed_ft_results)
+    else:
+        print("Forward path:")
+        parsed_ft_results = ParisTracerouteRenderer.parse(
+            forward_traceroute.output)
+        if protocol.lower() != 'icmp':
             parsed_ft_icmp_results = ParisTracerouteRenderer.parse(
                 forward_icmp_traceroute.output)
-
             #  if end of paths contains unknown host (*), try
             #  to complete the path to the destination using icmp
             parsed_ft_results = PathComparator.merge_paths(
                 parsed_ft_results, parsed_ft_icmp_results)
 
-            ParisTracerouteRenderer.render(parsed_ft_results)
+        ParisTracerouteRenderer.render(parsed_ft_results)
 
-        kwargs = {
-            "msm_id": 12539304,
-        }
-        is_success, results = AtlasResultsRequest(**kwargs).create()
+    # kwargs = {
+    #     "msm_id": 12667915,
+    # }
+    # is_success, results = AtlasResultsRequest(**kwargs).create()
 
-        print("Return path:")
-        parsed_rt_results = TracerouteRenderer.parse(results)
-        TracerouteRenderer.render(parsed_rt_results)
+    print("Return path:")
+    parsed_rt_results = TracerouteRenderer.parse(results)
+    TracerouteRenderer.render(parsed_rt_results)
 
-        path_comparator = PathComparator(parsed_ft_results, parsed_rt_results)
-        path_comparator.print_asn_paths()
+    # print ASN Paths
+    path_comparator = PathComparator(parsed_ft_results, parsed_rt_results)
+    path_comparator.print_asn_paths()
 
-        asn_symmetrical = path_comparator.compare_paths_by_asns()
-        if asn_symmetrical:
-            print('\n{}ASN paths appear to be symmetrical.{}'.format(
-                ConsoleColors.OKGREEN,
-                ConsoleColors.ENDC
-            ))
-        else:
-            print('\n{}ASN paths appear NOT to be symmetrical.{}'.format(
-                ConsoleColors.WARNING,
-                ConsoleColors.ENDC
-            ))
-
-        path_comparator.print_hostname_paths()
-        hostname_symmetrical = path_comparator.compare_paths_by_hostnames()
-        if hostname_symmetrical:
-            print('\n{}Hostname paths appear to be symmetrical.{}'.format(
-                ConsoleColors.OKGREEN,
-                ConsoleColors.ENDC
-            ))
-        else:
-            print('\n{}Hostname paths appear NOT to be symmetrical.{}'.format(
-                ConsoleColors.WARNING,
-                ConsoleColors.ENDC
-            ))
-
-        ft_individual_paths = path_comparator.extract_individual_paths(
-            parsed_ft_results)
-        gv = GraphVisualizer(ft_individual_paths)
-        gv.create_nxgraph()
-        gv.highlight_return_path(return_path=parsed_rt_results)
-        gv.save(name=distant_host)
-
+    asn_symmetrical = path_comparator.compare_paths_by_asns()
+    if asn_symmetrical:
+        print('\n{}ASN paths appear to be symmetrical.{}'.format(
+            ConsoleColors.OKGREEN,
+            ConsoleColors.ENDC
+        ))
     else:
-        sys.exit(1)
-    sys.exit(0)
+        print('\n{}ASN paths appear NOT to be symmetrical.{}'.format(
+            ConsoleColors.WARNING,
+            ConsoleColors.ENDC
+        ))
+
+    # print Hostname paths
+    path_comparator.print_hostname_paths()
+    hostname_symmetrical = path_comparator.compare_paths_by_hostnames()
+    if hostname_symmetrical:
+        print('\n{}Hostname paths appear to be symmetrical.{}'.format(
+            ConsoleColors.OKGREEN,
+            ConsoleColors.ENDC))
+    else:
+        print('\n{}Hostname paths appear NOT to be symmetrical.{}'.format(
+            ConsoleColors.WARNING,
+            ConsoleColors.ENDC))
+
+    ft_individual_paths = path_comparator.extract_individual_paths(
+        parsed_ft_results)
+
+    gv = GraphVisualizer(ft_individual_paths)
+    gv.create_nxgraph()
+
+    gv.highlight_return_path(return_path=parsed_rt_results)
+    gv.save(name=distant_host)
+
 
 if __name__ == '__main__':
     run()
