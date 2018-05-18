@@ -9,11 +9,13 @@ class BaseRenderer(object):
     def render(hop_lines):
         output = ''
 
-        header = '{}  {}  {}\t\t{}\n'.format(
+        header = '{}  {}  {}\t\t{}\t{}\t{}\n'.format(
             'Hop',
             'Host',
             '(Asn)',
-            'Avg RTT'
+            'Avg RTT',
+            '[Domain]',
+            'MPLS Labels'
         )
         output += header
 
@@ -24,13 +26,14 @@ class BaseRenderer(object):
                 if ' ' in hop.asn:
                     hop.asn = hop.asn.replace(' ', ',')
                 hosts.append(
-                    '{} {}{} ({}) {} {}'.format(
+                    '{} {}{} ({}) {} {} {}'.format(
                         hop.hostname if hop.hostname else '*',
                         hop.ip if hop.ip != hop.hostname else '',
                         ':' + ','.join(map(str, hop.packet_numbers)) if hop.packet_numbers else '',
                         hop.asn if hop.asn else 'AS???',
                         str(hop.rtt) + ' ms' if hop.rtt else '',
-                        '[{}]'.format(hop.domain) if hop.domain else ''
+                        '[{}]'.format(hop.domain) if hop.domain else '',
+                        hop.mpls_label
                     )
                 )
 

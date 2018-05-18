@@ -19,6 +19,10 @@ class ParisTracerouteRenderer(BaseRenderer):
             current_line = line.replace(', ', ',')
 
             if 'MPLS Label' in current_line:
+                # mpls labels is added to the hops in previous line
+                # because this is how it is displayed in Paris traceroute output
+                for hop in hop_lines[-1]:
+                    hop.mpls_label = current_line.strip()
                 continue
 
             hop_number = re.search(r'\d+', current_line).group()
@@ -38,6 +42,7 @@ class ParisTracerouteRenderer(BaseRenderer):
                 if len(cur_hop) < 2:
                     continue
 
+                # get rid of !Tx tags
                 while '!' in cur_hop[0]:
                     cur_hop = cur_hop[1:]
 
