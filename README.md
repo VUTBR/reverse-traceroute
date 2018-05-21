@@ -9,9 +9,10 @@ Also, paris-traceroute (or at least mtr) package needs to be installed.
 Graphs are generated using dot.
 
 # sudo dnf install -y paris-traceroute \
-                    dot \
                     mtr
 
+Tested on Fedora and Ubuntu.
+                    
 Usage:
 Make sure that valid API key is present in rtraceroute/config.py file
 Running paris traceroute requires root priviledges.
@@ -26,4 +27,8 @@ OPTIONS:
 -v, --verbose                       verbose output
 
 Example:
-python rtaceroute.py --protocol udp  -v www.fit.vutbr.cz
+cd rtracerote/rtraceroute
+sudo python rtaceroute.py --protocol udp  -v www.fit.vutbr.cz
+
+
+Average run time is about 30s. But depending on Atlas probe responsiveness, it may take up to 2 minutes.

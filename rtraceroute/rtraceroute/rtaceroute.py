@@ -26,6 +26,7 @@ import logging
 logging.getLogger().setLevel(logging.INFO)
 
 
+# For colored output
 class ConsoleColors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -200,11 +201,6 @@ def run(distant_host, local_host, protocol, probe_count, description, verbose):
                 parsed_ft_results, parsed_ft_icmp_results)
 
         ParisTracerouteRenderer.render(parsed_ft_results)
-
-    # kwargs = {
-    #     "msm_id": 12667915,
-    # }
-    # is_success, results = AtlasResultsRequest(**kwargs).create()
 
     print("Return path:")
     parsed_rt_results = TracerouteRenderer.parse(results)
