@@ -143,8 +143,11 @@ class ReverseTraceroute(object):
 @click.option(
     "-v", "--verbose", help="verbose output", count=True
 )
+@click.option(
+    "--compact", help="Compact output, show only AS path and Hostname path", count=True
+)
 @click.argument("distant-host")
-def run(distant_host, local_host, protocol, probe_count, description, verbose):
+def run(distant_host, local_host, protocol, probe_count, description, compact, verbose):
 
     if verbose:
         logging.info(
@@ -176,20 +179,21 @@ def run(distant_host, local_host, protocol, probe_count, description, verbose):
     if protocol.lower() != 'icmp':
         forward_icmp_traceroute.join()
 
+    if not compact:
+        print("Forward path:")
     if forward_traceroute.errors:
         if verbose:
             logging.info(
                 'Don\'t have root proviledges for paris-traceroute, '
                 'using mtr instead. Consider running with sudo.'
             )
-        print("Forward path:")
         forward_traceroute = Mtr(distant_host)
         forward_traceroute.start()
         forward_traceroute.join()
         parsed_ft_results = MtrRenderer.parse(forward_traceroute.output)
-        MtrRenderer.render(parsed_ft_results)
+        if not compact:
+            MtrRenderer.render(parsed_ft_results)
     else:
-        print("Forward path:")
         parsed_ft_results = ParisTracerouteRenderer.parse(
             forward_traceroute.output)
         if protocol.lower() != 'icmp':
@@ -199,12 +203,14 @@ def run(distant_host, local_host, protocol, probe_count, description, verbose):
             #  to complete the path to the destination using icmp
             parsed_ft_results = PathComparator.merge_paths(
                 parsed_ft_results, parsed_ft_icmp_results)
+        if not compact:
+            ParisTracerouteRenderer.render(parsed_ft_results)
 
-        ParisTracerouteRenderer.render(parsed_ft_results)
-
-    print("Return path:")
+    if not compact:
+        print("Return path:")
     parsed_rt_results = TracerouteRenderer.parse(results)
-    TracerouteRenderer.render(parsed_rt_results)
+    if not compact:
+        TracerouteRenderer.render(parsed_rt_results)
 
     # print ASN Paths
     path_comparator = PathComparator(parsed_ft_results, parsed_rt_results)

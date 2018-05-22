@@ -24,11 +24,12 @@ OPTIONS:
 --protocol [tcp, udp, icmp]         Protocol to use - ICMP, UDP, TCP, defaults to ICMP
 --probe-count <count>               Number of RIPE probes to request
 --description <description>         Measurement description
+--compact                           Compact output, show only AS path and Hostname path
 -v, --verbose                       verbose output
 
 Example:
 cd rtracerote/rtraceroute
-sudo python rtaceroute.py --protocol udp  -v www.fit.vutbr.cz
+sudo python rtaceroute.py --protocol udp -v www.fit.vutbr.cz
 
 
-Average run time is about 30s. But depending on Atlas probe responsiveness, it may take up to 2 minutes.
+Average run time is about 1 - 2 minutes. But it depends a lot on Atlas probe responsiveness, occasionally it takes up to 10 minutes.
