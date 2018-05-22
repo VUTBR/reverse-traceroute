@@ -114,7 +114,7 @@ class GraphVisualizer(object):
                 time.hour,
                 time.minute,
                 time.second)))
-            # os.remove('nx.tmp.dot')
+            os.remove('nx.tmp.dot')
         except IOError as e:
             logging.error('Could not write temporary dot file '
                           'nx.tmp.dot')
