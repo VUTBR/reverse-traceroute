@@ -1,23 +1,27 @@
-Rtraceroute -- Reverse traceroute tool
+# Rtraceroute -- Reverse traceroute tool
 
-Installation
+Tool for reverse path discovery using RIPE probes
+
+# Getting Started
 
 Tool relies on several packages, to install those packages, run:
-# pip install -r requirements.txt
-
+```
+pip install -r requirements.txt
+```
 Also, paris-traceroute (or at least mtr) package needs to be installed.
-Graphs are generated using dot.
+Graphs are generated using dot language and graphviz.
 
-# sudo dnf install -y paris-traceroute \
-                    mtr
+```
+# sudo dnf install -y paris-traceroute mtr graphviz
+```
 
-Tested on Fedora and Ubuntu.
                     
-Usage:
+# Usage:
+
 Make sure that valid API key is present in rtraceroute/config.py file
 Running paris traceroute requires root priviledges.
 
-
+```
 python rtraceroute [OPTIONS] destination-host
 OPTIONS:
 --local-host <local_host>           Host the RIPE traceroute is targeted to, defaults to this machine's address
@@ -26,10 +30,11 @@ OPTIONS:
 --description <description>         Measurement description
 --compact                           Compact output, show only AS path and Hostname path
 -v, --verbose                       verbose output
+```
 
-Example:
-cd rtracerote/rtraceroute
+# Example:
+```
 sudo python rtaceroute.py --protocol udp -v www.fit.vutbr.cz
+```
 
-
-Average run time is about 1 - 2 minutes. But it depends a lot on Atlas probe responsiveness, occasionally it takes up to 10 minutes.
+Average run time is about 1 - 2 minutes. But it depends on Atlas probe responsiveness, occasionally it may take up to 5 minutes.
